@@ -125,16 +125,16 @@ a {
 img {
     width: 40px;
 }
-.copy,.sendMail{
+.copy,.sendMail,.epagedownload,.phpagedownload{
     padding: 10px 12px;
     margin: 10px;
     width: 30px;
     cursor: pointer;
     display: none;
 }
-.sendMail{
+.sendMail,.epagedownload,.phpagedownload{
     margin-left: -12px;;
 }
-.copy:hover,.sendMail:hover{
+.copy:hover,.sendMail:hover,.epagedownload:hover,.phpagedownload:hover{
     opacity: 0.6;
 }

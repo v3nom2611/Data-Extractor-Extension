@@ -4,8 +4,14 @@ let earr = [];
 let parr = [];
 let phones = [];
 let f1 = 0,
-    f2 = 0,s;
-let store,items;
+    f2 = 0;
+let estore = [];
+let pstore = [];
+let str = "";
+chrome.storage.sync.get(['record'], (data) => {
+    estore = data.record.estore;
+    pstore = data.record.pstore;
+})
 
 Array.prototype.first = function() {
     //returns the first element 
@@ -52,13 +58,10 @@ const copyToClipboard = str => {
         .removeChild(el);
 };
 
-
-let str = '';
-
 function csv() {
     str = "";
-    if (emails.length > 0) {
-        for (let obj of emails) {
+    if (estore.length > 0) {
+        for (let obj of estore) {
             earr.push([obj]);
         }
         str += "Emails: ";
@@ -69,8 +72,8 @@ function csv() {
             str += "\n";
         });
     }
-    if (phones.length > 0) {
-        for (let obj of phones) {
+    if (pstore.length > 0) {
+        for (let obj of pstore) {
             parr.push([obj]);
         }
         str += "\n";
@@ -88,22 +91,50 @@ function csv() {
 
 function txt() {
     str = "";
+    if (estore.length > 0) {
+        str += "<-------- Emails -------->";
+        str += "\n";
+        str += "\n";
+        str += estore.join('\n')
+        str += "\n";
+    }
+    if (pstore.length > 0) {
+        str += "\n";
+        str += "<-------- Phone-Numbers --------> ";
+        str += "\n";
+        str += "\n";
+        str += pstore.join('\n')
+    }
+    //merge the data with CSV
+    download(str, "Data.txt");
+}
+
+function epageDownload() {
+    str = "";
     if (emails.length > 0) {
         str += "<-------- Emails -------->";
         str += "\n";
         str += "\n";
         str += emails.join('\n')
         str += "\n";
+        download(str, "Data.txt");
+    } else {
+        alert("No emails to download from this page!")
     }
+}
+
+function phpageDownload() {
+    str = "";
     if (phones.length > 0) {
-        str += "\n";
-        str += "<-------- Phone-Numbers --------> ";
+        str += "<-------- Phones -------->";
         str += "\n";
         str += "\n";
         str += phones.join('\n')
+        str += "\n";
+        download(str, "Data.txt");
+    } else {
+        alert("No Phone-Numbers to download from this page!")
     }
-    //merge the data with CSV
-    download(str, "Data.txt");
 }
 
 function download(str, filename) {
@@ -143,7 +174,6 @@ const refrech = (onlyBadge = false) => {
             currentWindow: true,
             active: true
         }, function(tabs) {
-
             chrome
                 .tabs
                 .sendMessage(tabs[0].id, {
@@ -156,42 +186,43 @@ const refrech = (onlyBadge = false) => {
 }
 let dummy = [];
 const showResults = res => {
+    console.log("shooted!")
     if (res && res.content) {
         //gives the page and its html content
         dummy = [...new Set(findEmails(res.content))]
         for (let obj of dummy) {
             if (!(obj.includes(".jpg")) && !(obj.includes(".png")) && !(obj.includes(".gif")) && !(obj.includes(".bmp"))) {
                 emails.push(obj);
+                estore.push(obj);
             }
         }
         emails = [...new Set(emails)]
-        // // s=emails.join(", ");
-        // // console.log(JSON.stringify(emails));
-        // // console.log(JSON.parse(emails));
-        // // console.log(s);
-        // // s=emails.join(", ");
-        // items=localStorage.getItem('emails');
-        // if(items==null){
-        //     store=[];
-        // }
-        // else{
-        //     store=items;
-        // }
-        // let temp=Object.assign(store,emails);
-        // console.log(temp);
-        // localStorage.setItem('emails',temp);
+        estore = [...new Set(estore)]
         phones = [...new Set(phone(res.content))]
+        pstore = pstore.length > 0 ? [...phones, ...pstore] : [...phones];
+        pstore = [...new Set(pstore)]
         updateBadge(emails.length + phones.length);
         if (res.options && res.options.data && res.options.data.onlyBadge === true) {
             return false;
         }
         eDomains = [...new Set(EmailDomain(emails))];
+        let data = {
+            estore,
+            pstore
+        }
+        chrome.storage.sync.set({ 'record': data }, () => {
+            console.log("records stored successfully!!")
+        });
         //making an array of all the emails on page 
         updateResultInfoView(emails.length + phones.length, eDomains.length);
         let results = document.getElementById('result');
         let ecopy = document.getElementById('ecopy');
         let pcopy = document.getElementById('pcopy');
         let sendMail = document.getElementById('sendMail');
+        let phpagedownload = document.getElementById('phpagedownload');
+        let epagedownload = document.getElementById('epagedownload');
+        phpagedownload.style.display = 'none';
+        epagedownload.style.display = 'none';
         sendMail.style.display = 'none';
         results.style.display = 'none';
         ecopy.style.display = 'none';
@@ -239,9 +270,9 @@ const copy = () => {
                 }, (res) => {
                     if (res && res.content) {
                         if (f1 == 1) {
-                            copyToClipboard(emails.join(' '));
+                            copyToClipboard(estore.join(' '));
                         } else {
-                            copyToClipboard(phones.join(' '));
+                            copyToClipboard(pstore.join(' '));
                         }
                     }
                 })
@@ -262,7 +293,7 @@ const toEmail = () => {
                 }, (res) => {
 
                     if (res && res.content) {
-                        const emailsText = emails.join(';');
+                        const emailsText = estore.join(';');
                         if (!empty(emailsText)) {
                             var emailUrl = 'mailto: ' + escape(emailsText);
                             chrome
@@ -296,9 +327,9 @@ const downloadCsv = () => {
                     data: {}
                 }, (res) => {
                     if (res && res.content) {
-                        if (emails.length > 0 || phones.length > 0) {
+                        if (estore.length > 0 || pstore.length > 0) {
                             csv();
-                        } else if (emails.length == 0 && phones.length == 0) {
+                        } else if (estore.length == 0 && pstore.length == 0) {
                             alert("Nothing to download!")
                         }
                     }
@@ -319,9 +350,9 @@ const downloadTxt = () => {
                     data: {}
                 }, (res) => {
                     if (res && res.content) {
-                        if (emails.length > 0 || phones.length > 0) {
+                        if (estore.length > 0 || pstore.length > 0) {
                             txt();
-                        } else if (emails.length == 0 && phones.length == 0) {
+                        } else if (estore.length == 0 && pstore.length == 0) {
                             alert("Nothing to download!")
                         }
                     }
@@ -334,18 +365,22 @@ const emailAct = () => {
     let results = document.getElementById('result');
     let total = document.getElementById('total');
     let sendMail = document.getElementById('sendMail');
+    let phpagedownload = document.getElementById('phpagedownload');
+    let epagedownload = document.getElementById('epagedownload');
     results.style.display = 'block';
     total.style.display = 'block';
     pcopy.style.display = 'none';
-    let data = emails.join('\n');
+    phpagedownload.style.display = 'none';
+    let data = estore.join('\n');
     if (data.length == 0) {
         results.innerText = "No Data Available";
         total.innerText = "Results: " + 0;
     } else {
         results.innerText = data;
-        total.innerText = "Results: " + emails.length;
+        total.innerText = "Results: " + estore.length;
         ecopy.style.display = 'inline-block';
         sendMail.style.display = 'inline-block';
+        epagedownload.style.display = 'inline-block';
         f1 = 1;
         f2 = 0;
     }
@@ -356,12 +391,15 @@ const phoneAct = () => {
     let results = document.getElementById('result');
     let total = document.getElementById('total');
     let sendMail = document.getElementById('sendMail');
+    let phpagedownload = document.getElementById('phpagedownload');
+    let epagedownload = document.getElementById('epagedownload');
 
     sendMail.style.display = 'none';
     ecopy.style.display = 'none';
+    epagedownload.style.display = 'none';
     results.style.display = 'block';
     total.style.display = 'block';
-    let data = phones.join('\n');
+    let data = pstore.join('\n');
     if (data.length == 0) {
         results.innerText = "No Data Available";
         total.innerText = "Results: " + 0;
@@ -369,7 +407,8 @@ const phoneAct = () => {
         f1 = 0;
         f2 = 1;
         results.innerText = data;
-        total.innerText = "Results: " + phones.length;
+        total.innerText = "Results: " + pstore.length;
         pcopy.style.display = 'inline-block';
+        phpagedownload.style.display = 'inline-block'
     }
 }
